@@ -18,6 +18,11 @@ Extract the zip file and just drop the contents in the wp-content/plugins/ direc
 
 Or install from the dashboard like all the cool kids do.
 
+== Screenshots ==
+
+1. Widget in the admin
+2. Widget in place on the frontend
+
 == Changelog ==
 
 = 1.0.0 =
