@@ -10,6 +10,8 @@ Stable tag: trunk
  
 A simple widget that will show a list of repos for a specified GitHub user.
 
+Note: This plugin users GitHub.com for updates instead of WordPress.org. If you install it from WordPress.org an newer version may be available from GitHub. If so, you will prompted that an update is available and you can update the plugin through the dashboard like normal.
+
 == Description ==
 
 A simple widget that will show a list of repos for a specified GitHub user. Optionally can display a GitHub follow badge as well.
