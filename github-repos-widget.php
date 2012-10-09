@@ -50,9 +50,11 @@ class ja_github_repo_Widget extends WP_Widget {
 
 		// Widget defaults
 		$this->defaults = array(
-			'title'    => '',
-			'username' => '',
-			'badge'    => 0,
+			'title'		=> '',
+			'username'	=> '',
+			'sort'		=> 'full_name',
+			'count'		=> 5,
+			'badge'		=> 0,
 		);
 
 		// Widget basics
@@ -92,34 +94,48 @@ class ja_github_repo_Widget extends WP_Widget {
 		if ( !empty( $instance['title'] ) ) { echo $before_title . $instance['title'] . $after_title; }
 
 		// Check for transient
-		$repos = get_transient( 'ja_github_repos_' . $username );
+		$response = get_transient( 'ja_github_repos_' . $username );
 
 		// If the was no transiet let's cook one up
-		if ( !$repos ) {
+		if ( !$response ) {
+
+			$args 	= array (
+				'sslverify'		=> false,
+			);
+
+			// grab username and total gists to grab
+			$user	= esc_attr( $instance['username']);
+			$number	= esc_attr( $instance['count']);
+			$sort	= esc_attr( $instance['sort']);
+
+			// set some fallbacks
+			if (!empty ($number) ) { $max = $number; } else { $max = 100; } // 100 is the max return in the GitHub API
 
 			// Ping GitHub API
-			$repos = wp_remote_post( 'https://api.github.com/users/' . $username . '/repos', array( 'method' => 'GET' ) );
+			$request	= new WP_Http;
+			$url		= 'https://api.github.com/users/'.urlencode($user).'/repos?&type=owner&per_page='.$max.'&sort='.$sort.'';
+			$response	= wp_remote_get ( $url, $args );
 
 			// Check to make sure GitHub gave us the green light
-			if ( $repos['response']['message'] == 'OK' ) {
+			if ( $response['response']['message'] == 'OK' ) {
 				
 				// Decode response
-				$repos = json_decode( $repos['body'] );
+				$response = json_decode( $response['body'] );
 
 			} else {
 
 				// Something fucked up, note that
-				$repos = 'error';
+				$response = 'error';
 
 			}
 
 			// Save to a transient and keep for 6 hours
-			set_transient( 'ja_github_repos_' . $username , $repos, 21600 );
+			set_transient( 'ja_github_repos_' . $username , $response, 21600 );
 
 		}
 
 		// Check to see if pinging the API resulted in an error
-		if ( $repos == 'error' ) {
+		if ( $response == 'error' ) {
 
 			echo 'An error occured with the GitHub API. Please try again later.';
 
@@ -127,7 +143,7 @@ class ja_github_repo_Widget extends WP_Widget {
 
 			// No error, so build the list of repos
 			echo '<ul>';
-			foreach ( $repos as $repo ) {
+			foreach ( $response as $repo ) {
 				echo '<li><a href="' . $repo->html_url . '">' . $repo->name . '</a></li>';
 			}
 			echo '</ul>';
@@ -156,10 +172,19 @@ class ja_github_repo_Widget extends WP_Widget {
 
 		$new_instance['title']    = strip_tags( $new_instance['title'] );
 		$new_instance['username'] = strip_tags( $new_instance['username'] );
+		$new_instance['count']	  = intval( $new_instance['count'] );
 		$new_instance['badge']    = intval( $new_instance['badge'] );
+		if ( in_array( $new_instance['sort'], array( 'created', 'updated', 'pushed', 'full_name' ) ) ) {
+			$new_instance['sort'] = $new_instance['sort'];
+		} else {
+			$new_instance['sort'] = 'full_name';
+		}
+
+		// Remove our saved transient (in case we changed something) 
+		$user = $new_instance['username'];
+		delete_transient('ja_github_repos_'.$user.'');
 
 		return $new_instance;
-
 	}
 
     /**
@@ -181,6 +206,19 @@ class ja_github_repo_Widget extends WP_Widget {
 			<label for="<?php echo $this->get_field_id( 'username' ); ?>">Github username:</label>
 			<input type="text" id="<?php echo $this->get_field_id( 'username' ); ?>" name="<?php echo $this->get_field_name( 'username' ); ?>" value="<?php echo esc_attr( $instance['username'] ); ?>" class="widefat" />
 		</p>
+		<p>
+			<label for="<?php echo $this->get_field_id( 'count' ); ?>">Repo Count:</label>
+			<input type="text" id="<?php echo $this->get_field_id( 'count' ); ?>" name="<?php echo $this->get_field_name( 'count' ); ?>" value="<?php echo esc_attr( $instance['count'] ); ?>" class="widefat" />
+		</p>		
+		<p>
+			<label for="<?php echo $this->get_field_id('sort'); ?>"><?php _e( 'Sort Method' ); ?></label>
+			<select name="<?php echo $this->get_field_name('sort'); ?>" id="<?php echo $this->get_field_id('sort'); ?>" class="widefat">
+				<option value="created"<?php selected( $instance['sort'], 'created' ); ?>><?php _e('Date Created'); ?></option>
+				<option value="updated"<?php selected( $instance['sort'], 'updated' ); ?>><?php _e('Last Updated'); ?></option>
+				<option value="pushed"<?php selected( $instance['sort'], 'pushed' ); ?>><?php _e( 'Pushed' ); ?></option>
+				<option value="full_name"<?php selected( $instance['sort'], 'full_name' ); ?>><?php _e( 'Repo Name' ); ?></option>
+			</select>
+		</p>		
 		<p>
 			<input id="<?php echo $this->get_field_id( 'badge' ); ?>" type="checkbox" name="<?php echo $this->get_field_name( 'badge' ); ?>" value="1" <?php checked( $instance['badge'], 1 ); ?>/>
 			<label for="<?php echo $this->get_field_id( 'badge' ); ?>">Show GitHub follow button</label>
